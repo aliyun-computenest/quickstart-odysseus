@@ -1,0 +1,106 @@
+Service:
+  RegionId: cn-hongkong
+  DeployType: ros
+  DeployMetadata:
+    ServiceInstanceNameRule:
+      Prefix: odysseus
+      UseDefaultValue: false
+    SupplierDeployMetadata:
+      ArtifactRelation:
+        ecs_image:
+          ArtifactId: ${Artifact.EcsImage.ArtifactId}
+          ArtifactVersion: draft
+    TemplateConfigs:
+    - Name: ECS单机版
+      Url: 'ros_templates/template.yaml'
+      ArchitectureDiagramUrl: 'resources/architecture/architecture.jpg'
+      AllowedRegions:
+      - cn-qingdao
+      - cn-beijing
+      - cn-zhangjiakou
+      - cn-huhehaote
+      - cn-hangzhou
+      - cn-shanghai
+      - cn-shenzhen
+      - cn-chengdu
+      - cn-hongkong
+      - ap-southeast-1
+      - ap-southeast-3
+      - ap-southeast-5
+      - ap-northeast-1
+      - us-west-1
+      - us-east-1
+      - eu-central-1
+      - eu-west-1
+      - me-east-1
+  ServiceType: private
+  ServiceInfo:
+    # 英文版可以再配置Locale为en-US的服务信息
+  - Locale: zh-CN
+    Name: Odysseus社区版
+    ShortDescription: Odysseus 是一款基于 Python FastAPI 的本地优先 LLM 工作站，集成 SearXNG 
+      搜索、ChromaDB 向量库与 ntfy 推送，通过 Docker Compose 
+      一键部署，提供可视化对话、研究编排、模型管理与多账号协作能力，适合在阿里云上自托管的 AI 助理与知识库场景。
+    Image: 
+      https://service-info-public.oss-cn-hangzhou.aliyuncs.com/1853370294850618/cn-hangzhou/service_logoff19f53424d044ec817b.png
+    Softwares: []
+Artifact:
+  EcsImage:
+    ArtifactType: EcsImage
+    ArtifactName: ecs_image_odysseus
+    Description: odysseus EcsImage
+    SupportRegionIds:
+    - cn-qingdao
+    - cn-beijing
+    - cn-zhangjiakou
+    - cn-huhehaote
+    - cn-hangzhou
+    - cn-shanghai
+    - cn-shenzhen
+    - cn-chengdu
+    - cn-hongkong
+    - ap-southeast-1
+    - ap-southeast-3
+    - ap-southeast-5
+    - ap-northeast-1
+    - us-west-1
+    - us-east-1
+    - eu-central-1
+    - eu-west-1
+    - me-east-1
+    ArtifactProperty:
+      RegionId: cn-hongkong
+    ArtifactBuildProperty:
+      RegionId: cn-hongkong
+      SourceImageId: "aliyun/services/computenest/images/aliyun_3_2104_docker_26"
+      CommandType: RunShellScript
+      Timeout: 10800
+      CommandContent: |
+        #!/bin/bash
+        set -e
+        REPO_URL="https://github.com/pewdiepie-archdaemon/odysseus"
+        APP_NAME="odysseus"
+        TEMP_DIR="/tmp/${APP_NAME}-$(date +%s)"
+
+        git clone --depth 1 "${REPO_URL}" "${TEMP_DIR}"
+
+        mkdir -p "/opt/${APP_NAME}"
+
+        # Dockerfile uses `COPY . .` and references docker/entrypoint.sh, requirements.txt,
+        # etc. — ship the entire repo to /opt/${APP_NAME}/ so the build context is complete.
+        cp -a "${TEMP_DIR}/." "/opt/${APP_NAME}/"
+
+        # Drop the cloned .git folder to keep the artifact image lean
+        rm -rf "/opt/${APP_NAME}/.git"
+
+        # Ensure .env exists before docker compose pull/build
+        if [ ! -f "/opt/${APP_NAME}/.env" ]; then
+            cp "/opt/${APP_NAME}/.env.example" "/opt/${APP_NAME}/.env"
+        fi
+
+        # Pre-pull / pre-build images to bake the artifact image
+        cd "/opt/${APP_NAME}"
+        docker compose pull || true
+        docker compose build
+
+        rm -rf "${TEMP_DIR}"

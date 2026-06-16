@@ -1,0 +1,89 @@
+RegionId: cn-hongkong
+RepoUrl: https://github.com/pewdiepie-archdaemon/odysseus
+RepoName: odysseus
+ServiceName: odysseus
+ServiceDescription: Odysseus 是一款基于 Python FastAPI 的本地优先 LLM 工作站，集成 SearXNG 搜索、ChromaDB 向量库与 ntfy 推送，通过 Docker Compose 一键部署，提供可视化对话、研究编排、模型管理与多账号协作能力，适合在阿里云上自托管的 AI 助理与知识库场景。
+BuildCommandContent: |
+  #!/bin/bash
+  set -e
+  REPO_URL="https://github.com/pewdiepie-archdaemon/odysseus"
+  APP_NAME="odysseus"
+  TEMP_DIR="/tmp/${APP_NAME}-$(date +%s)"
+
+  git clone --depth 1 "${REPO_URL}" "${TEMP_DIR}"
+
+  mkdir -p "/opt/${APP_NAME}"
+
+  # Dockerfile uses `COPY . .` and references docker/entrypoint.sh, requirements.txt,
+  # etc. — ship the entire repo to /opt/${APP_NAME}/ so the build context is complete.
+  cp -a "${TEMP_DIR}/." "/opt/${APP_NAME}/"
+
+  # Drop the cloned .git folder to keep the artifact image lean
+  rm -rf "/opt/${APP_NAME}/.git"
+
+  # Ensure .env exists before docker compose pull/build
+  if [ ! -f "/opt/${APP_NAME}/.env" ]; then
+      cp "/opt/${APP_NAME}/.env.example" "/opt/${APP_NAME}/.env"
+  fi
+
+  # Pre-pull / pre-build images to bake the artifact image
+  cd "/opt/${APP_NAME}"
+  docker compose pull || true
+  docker compose build
+
+  rm -rf "${TEMP_DIR}"
+StartCommandContent: |
+  #!/bin/bash
+  set -e
+  APP_NAME="odysseus"
+  INSTALL_DIR="/opt/${APP_NAME}"
+
+  cd "${INSTALL_DIR}"
+
+  if [ ! -f .env ]; then
+      if [ -f .env.example ]; then
+          cp .env.example .env
+      else
+          touch .env
+      fi
+  fi
+
+  # Default APP_BIND in .env.example is 127.0.0.1 (loopback only). Force LAN bind
+  # so the ECS public IP can reach the service.
+  if grep -q '^APP_BIND=' .env; then
+      sed -i "s/^APP_BIND=.*/APP_BIND=0.0.0.0/" .env
+  else
+      echo "APP_BIND=0.0.0.0" >> .env
+  fi
+
+  # Inject user-facing parameters
+  if grep -q '^ODYSSEUS_ADMIN_USER=' .env; then
+      sed -i "s/^ODYSSEUS_ADMIN_USER=.*/ODYSSEUS_ADMIN_USER=${ODYSSEUS_ADMIN_USER}/" .env
+  else
+      echo "ODYSSEUS_ADMIN_USER=${ODYSSEUS_ADMIN_USER}" >> .env
+  fi
+
+  if grep -q '^ODYSSEUS_ADMIN_PASSWORD=' .env; then
+      sed -i "s|^ODYSSEUS_ADMIN_PASSWORD=.*|ODYSSEUS_ADMIN_PASSWORD=${ODYSSEUS_ADMIN_PASSWORD}|" .env
+  else
+      echo "ODYSSEUS_ADMIN_PASSWORD=${ODYSSEUS_ADMIN_PASSWORD}" >> .env
+  fi
+
+  docker compose up -d
+SecurityGroupPorts:
+  - [7000, tcp]
+ServicePorts:
+  odysseus:
+    - [7000, tcp]
+CustomParameters:
+  - Name: ODYSSEUS_ADMIN_USER
+    Type: String
+    Label: 管理员用户名
+    Default: admin
+  - Name: ODYSSEUS_ADMIN_PASSWORD
+    Type: String
+    Label: 管理员登录密码
+    NoEcho: true
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    MinLength: 8
+    MaxLength: 30
