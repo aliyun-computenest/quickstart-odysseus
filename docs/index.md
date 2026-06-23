@@ -12,7 +12,7 @@ Odysseus 是一款轻量级的开源服务，提供基于 Web 的管理与登录
 
 [部署链接](https://computenest.console.aliyun.com/service/instance/create/cn-hangzhou?type=user&ServiceId=service-1826a8af63764c00bce8)
 
-![创建服务实例](images/create-instance.png)
+![创建服务实例](images/create-instance.jpg)
 
 ### 2. 确认订单并创建
 
@@ -33,3 +33,6 @@ Odysseus 是一款轻量级的开源服务，提供基于 Web 的管理与登录
 ## 官方文档
 
 更多信息请访问官方文档：[Odysseus 官方仓库](https://github.com/pewdiepie-archdaemon/odysseus)
+
+### 使用须知
+本工具都为第三方开源项目，阿里云仅提供云资源和部署入口支持，不对工具自身功能、生成内容、执行结果、服务可用性及额外费用承担责任。
